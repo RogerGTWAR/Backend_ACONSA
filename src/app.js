@@ -47,14 +47,32 @@ app.use(cookieParser());
 
 /* ============================================================
    CONFIGURACIÓN DE CORS
-   Permite que solo los frontend autorizados puedan consumir la API
 ============================================================ */
+
+const normalizeOrigin = (url) => {
+  if (!url) return null;
+  return url.replace(/\/$/, "");
+};
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+
+  "https://frontend-aconsa.vercel.app",
+  "https://frontend-aconsa-rogergtwars-projects.vercel.app",
+
   process.env.FRONTEND_URL
-].filter(Boolean);
+]
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
+const isAllowedVercelPreview = (origin) => {
+  if (!origin) return false;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return /^https:\/\/frontend-aconsa.*\.vercel\.app$/.test(normalizedOrigin);
+};
 
 app.use(
   cors({
@@ -63,7 +81,12 @@ app.use(
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      const normalizedOrigin = normalizeOrigin(origin);
+
+      if (
+        allowedOrigins.includes(normalizedOrigin) ||
+        isAllowedVercelPreview(normalizedOrigin)
+      ) {
         return callback(null, true);
       }
 

@@ -37,9 +37,18 @@ dotenv.config();
 
 const app = express();
 
+/* ============================================================
+   MIDDLEWARES PRINCIPALES
+============================================================ */
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+/* ============================================================
+   CONFIGURACIÓN DE CORS
+   Permite que solo los frontend autorizados puedan consumir la API
+============================================================ */
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -65,12 +74,20 @@ app.use(
   })
 );
 
+/* ============================================================
+   ARCHIVOS ESTÁTICOS
+============================================================ */
+
 app.use(express.static("public"));
 
 app.use(
   "/uploads",
   express.static(path.join(process.cwd(), "public", "uploads"))
 );
+
+/* ============================================================
+   RUTAS DE PRUEBA
+============================================================ */
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -85,6 +102,10 @@ app.get("/", (_req, res) => {
     msg: "API funcionando correctamente en Render"
   });
 });
+
+/* ============================================================
+   RUTAS DEL SISTEMA ACONSA
+============================================================ */
 
 app.use("/api/avaluos", AvaluoRoutes);
 app.use("/api/detalle_avaluos", DetalleAvaloRoutes);
@@ -115,12 +136,20 @@ app.use("/api/menus", MenuRoutes);
 app.use("/api/reportes", ReportesRouter);
 app.use("/api/historial_alertas", HistorialAlertasRoutes);
 
+/* ============================================================
+   MANEJO DE RUTAS NO ENCONTRADAS
+============================================================ */
+
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
     msg: `Ruta no encontrada: ${req.method} ${req.originalUrl}`
   });
 });
+
+/* ============================================================
+   MANEJO GENERAL DE ERRORES
+============================================================ */
 
 app.use((err, _req, res, _next) => {
   console.error("Unhandled error:", err);

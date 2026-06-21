@@ -1,0 +1,489 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("BASE_URL")
+}
+
+model roles {
+  rol_id              Int         @id @default(autoincrement())
+  cargo               String?     @db.VarChar(100)
+  descripcion         String?     @db.VarChar(150)
+  fecha_creacion      DateTime?   @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?   @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?   @db.Timestamptz(6)
+  empleados           empleados[]
+}
+
+model empleados {
+  empleado_id         Int                  @id @default(autoincrement())
+  nombres             String               @db.VarChar(100)
+  apellidos           String               @db.VarChar(100)
+  cedula              String               @db.VarChar(25)
+  rol_id              Int
+  fecha_nacimiento    DateTime             @db.Date
+  fecha_contratacion  DateTime             @db.Date
+  direccion           String?              @db.VarChar(150)
+  pais                String?              @db.VarChar(50)
+  telefono            String?              @db.VarChar(15)
+  correo              String?              @db.VarChar(100)
+  reportes            Int?
+  fecha_creacion      DateTime?            @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?            @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?            @db.Timestamptz(6)
+  compras             compras[]
+  detalles_empleados  detalles_empleados[]
+  detalles_vehiculos  detalles_vehiculos[]
+  jefe                empleados?           @relation("EmpleadoJefe", fields: [reportes], references: [empleado_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_empleados_jefe")
+  subalternos         empleados[]          @relation("EmpleadoJefe")
+  roles               roles                @relation(fields: [rol_id], references: [rol_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_empleados_roles")
+  usuarios            usuarios[]
+
+  @@index([reportes], map: "idx_empleados_reportes")
+  @@index([rol_id], map: "idx_empleados_rol_id")
+}
+
+model clientes {
+  cliente_id            String      @id @db.Char(5)
+  tipo_cliente          String      @db.VarChar(30)
+  numero_identificacion String?     @db.VarChar(50)
+  nombre_empresa        String      @db.VarChar(100)
+  nombre_contacto       String?     @db.VarChar(100)
+  cargo_contacto        String?     @db.VarChar(50)
+  direccion             String?     @db.VarChar(150)
+  ciudad                String?     @db.VarChar(100)
+  pais                  String?     @db.VarChar(50)
+  telefono              String?     @db.VarChar(20)
+  correo                String?     @db.VarChar(100)
+  fecha_creacion        DateTime?   @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion   DateTime?   @db.Timestamptz(6)
+  fecha_eliminacion     DateTime?   @db.Timestamptz(6)
+  proyectos             proyectos[]
+}
+
+model categorias_proveedor {
+  categoria_proveedor_id Int           @id @default(autoincrement())
+  nombre_categoria       String        @db.VarChar(100)
+  descripcion            String?       @db.VarChar(150)
+  fecha_creacion         DateTime?     @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion    DateTime?     @db.Timestamptz(6)
+  fecha_eliminacion      DateTime?     @db.Timestamptz(6)
+  proveedores            proveedores[]
+}
+
+model proveedores {
+  proveedor_id           Int                  @id @default(autoincrement())
+  categoria_proveedor_id Int
+  nombre_empresa         String               @db.VarChar(100)
+  nombre_contacto        String?              @db.VarChar(100)
+  cargo_contacto         String?              @db.VarChar(50)
+  direccion              String?              @db.VarChar(150)
+  ciudad                 String?              @db.VarChar(100)
+  pais                   String?              @db.VarChar(50)
+  telefono               String?              @db.VarChar(15)
+  correo                 String?              @db.VarChar(100)
+  fecha_creacion         DateTime?            @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion    DateTime?            @db.Timestamptz(6)
+  fecha_eliminacion      DateTime?            @db.Timestamptz(6)
+  compras                compras[]
+  maquinarias            maquinarias[]
+  categorias_proveedor   categorias_proveedor @relation(fields: [categoria_proveedor_id], references: [categoria_proveedor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_proveedores_categoria")
+  vehiculos              vehiculos[]
+
+  @@index([categoria_proveedor_id], map: "idx_proveedores_categoria_id")
+}
+
+model proyectos {
+  proyecto_id          Int                    @id @default(autoincrement())
+  cliente_id           String                 @db.Char(5)
+  nombre_proyecto      String                 @db.VarChar(100)
+  descripcion          String?                @db.VarChar(150)
+  ubicacion            String?                @db.VarChar(100)
+  fecha_inicio         DateTime               @db.Date
+  fecha_fin            DateTime?              @db.Date
+  tiempo_total_dias    Int?                   @default(dbgenerated("(fecha_fin - fecha_inicio)")) @ignore
+  presupuesto_total    Decimal                @db.Decimal(18, 2)
+  estado               String                 @db.VarChar(50)
+  fecha_creacion       DateTime?              @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion  DateTime?              @db.Timestamptz(6)
+  fecha_eliminacion    DateTime?              @db.Timestamptz(6)
+  avaluos              avaluos[]
+  detalles_empleados   detalles_empleados[]
+  detalles_maquinarias detalles_maquinarias[]
+  clientes             clientes               @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_proyectos_clientes")
+
+  @@index([cliente_id], map: "idx_proyectos_cliente_id")
+}
+
+model detalles_empleados {
+  detalle_empleado_id Int       @id @default(autoincrement())
+  empleado_id         Int
+  proyecto_id         Int
+  fecha_de_proyecto   DateTime? @db.Date
+  fecha_creacion      DateTime? @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime? @db.Timestamptz(6)
+  fecha_eliminacion   DateTime? @db.Timestamptz(6)
+  empleados           empleados @relation(fields: [empleado_id], references: [empleado_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_empleados_empleados")
+  proyectos           proyectos @relation(fields: [proyecto_id], references: [proyecto_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_empleados_proyectos")
+
+  @@index([empleado_id], map: "idx_detalles_empleados_empleado_id")
+  @@index([proyecto_id], map: "idx_detalles_empleados_proyecto_id")
+}
+
+model categorias {
+  categoria_id        Int          @id @default(autoincrement())
+  nombre_categoria    String       @db.VarChar(100)
+  descripcion         String       @db.VarChar(150)
+  fecha_creacion      DateTime?    @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?    @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?    @db.Timestamptz(6)
+  materiales          materiales[]
+}
+
+model materiales {
+  material_id               Int                         @id @default(autoincrement())
+  nombre_material           String                      @db.VarChar(100)
+  categoria_id              Int?
+  descripcion               String?                     @db.VarChar(150)
+  unidad_de_medida          String                      @db.VarChar(100)
+  cantidad_en_stock         Int
+  stock_minimo              Int                         @default(10)
+  precio_unitario           Decimal                     @db.Decimal(18, 2)
+  fecha_creacion            DateTime?                   @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion       DateTime?                   @db.Timestamptz(6)
+  fecha_eliminacion         DateTime?                   @db.Timestamptz(6)
+  alertas_inventario        alertas_inventario[]
+  costos_directos_servicios costos_directos_servicios[]
+  detalles_compras          detalles_compras[]
+  categorias                categorias?                 @relation(fields: [categoria_id], references: [categoria_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_materiales_categorias")
+  movimientos_inventario    movimientos_inventario[]
+
+  @@index([categoria_id], map: "idx_materiales_categoria_id")
+}
+
+model avaluos {
+  avaluo_id           Int                @id @default(autoincrement())
+  proyecto_id         Int
+  descripcion         String?            @db.VarChar(200)
+  monto_ejecutado     Decimal            @db.Decimal(18, 2)
+  fecha_inicio        DateTime           @db.Timestamp(6)
+  fecha_fin           DateTime           @db.Timestamp(6)
+  tiempo_total_dias   Int?               @default(dbgenerated("((fecha_fin)::date - (fecha_inicio)::date)")) @ignore
+  fecha_creacion      DateTime?          @default(now()) @db.Timestamp(6)
+  fecha_actualizacion DateTime?          @db.Timestamp(6)
+  fecha_eliminacion   DateTime?          @db.Timestamp(6)
+  proyectos           proyectos          @relation(fields: [proyecto_id], references: [proyecto_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_avaluos_proyectos")
+  detalles_avaluos    detalles_avaluos[]
+
+  @@index([proyecto_id], map: "idx_avaluos_proyecto_id")
+}
+
+model servicios {
+  servicio_id                 Int                           @id @default(autoincrement())
+  nombre_servicio             String                        @db.VarChar(100)
+  descripcion                 String?                       @db.VarChar(200)
+  total_costo_directo         Decimal                       @db.Decimal(18, 2)
+  total_costo_indirecto       Decimal                       @db.Decimal(18, 2)
+  costo_venta                 Decimal?                      @default(dbgenerated("(total_costo_directo + total_costo_indirecto)")) @ignore @db.Decimal(18, 2)
+  fecha_creacion              DateTime?                     @default(now()) @db.Timestamp(6)
+  fecha_actualizacion         DateTime?                     @db.Timestamp(6)
+  fecha_eliminacion           DateTime?                     @db.Timestamp(6)
+  costos_directos_servicios   costos_directos_servicios[]
+  costos_indirectos_servicios costos_indirectos_servicios[]
+  detalles_avaluos            detalles_avaluos[]
+}
+
+model costos_directos_servicios {
+  costo_directo_id                Int                           @id @default(autoincrement())
+  servicio_id                     Int
+  material_id                     Int
+  cantidad_material               Int
+  unidad_de_medida                String                        @db.VarChar(50)
+  precio_unitario                 Decimal                       @db.Decimal(18, 2)
+  costo_material                  Decimal?                      @default(dbgenerated("(precio_unitario * (cantidad_material)::numeric)")) @ignore @db.Decimal(18, 2)
+  mano_obra                       Decimal?                      @default(dbgenerated("((precio_unitario * (cantidad_material)::numeric) * 0.40)")) @ignore @db.Decimal(18, 2)
+  equipos_transporte_herramientas Decimal?                      @default(dbgenerated("((precio_unitario * (cantidad_material)::numeric) * 0.10)")) @ignore @db.Decimal(18, 2)
+  total_costo_directo             Decimal?                      @default(dbgenerated("(((precio_unitario * (cantidad_material)::numeric) + ((precio_unitario * (cantidad_material)::numeric) * 0.40)) + ((precio_unitario * (cantidad_material)::numeric) * 0.10))")) @ignore @db.Decimal(18, 2)
+  fecha_creacion                  DateTime                      @default(now()) @db.Timestamp(6)
+  fecha_actualizacion             DateTime?                     @db.Timestamp(6)
+  fecha_eliminacion               DateTime?                     @db.Timestamp(6)
+  material_id_materiales          materiales                    @relation(fields: [material_id], references: [material_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_costos_directos_materiales")
+  servicio_id_servicios           servicios                     @relation(fields: [servicio_id], references: [servicio_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_costos_directos_servicios")
+  costos_indirectos_servicios     costos_indirectos_servicios[]
+
+  @@index([material_id], map: "idx_costos_directos_material_id")
+  @@index([servicio_id], map: "idx_costos_directos_servicio_id")
+  @@map("costos_directos_servicios")
+}
+
+model costos_indirectos_servicios {
+  costo_indirecto_id                         Int                       @id @default(autoincrement())
+  servicio_id                                Int
+  costo_directo_id                           Int
+  total_costo_directo                        Decimal                   @db.Decimal(18, 2)
+  administracion                             Decimal?                  @default(dbgenerated("(total_costo_directo * 0.05)")) @ignore @db.Decimal(18, 2)
+  operacion                                  Decimal?                  @default(dbgenerated("(total_costo_directo * 0.10)")) @ignore @db.Decimal(18, 2)
+  utilidad                                   Decimal?                  @default(dbgenerated("(total_costo_directo * 0.15)")) @ignore @db.Decimal(18, 2)
+  precio_unitario                            Decimal?                  @default(dbgenerated("(((total_costo_directo * 0.05) + (total_costo_directo * 0.10)) + (total_costo_directo * 0.15))")) @ignore @db.Decimal(18, 2)
+  total_costo_indirecto                      Decimal?                  @default(dbgenerated("(((total_costo_directo * 0.05) + (total_costo_directo * 0.10)) + (total_costo_directo * 0.15))")) @ignore @db.Decimal(18, 2)
+  fecha_creacion                             DateTime?                 @default(now()) @db.Timestamp(6)
+  fecha_actualizacion                        DateTime?                 @db.Timestamp(6)
+  fecha_eliminacion                          DateTime?                 @db.Timestamp(6)
+  costo_directo_id_costos_directos_servicios costos_directos_servicios @relation(fields: [costo_directo_id], references: [costo_directo_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_costos_indirectos_directos")
+  servicio_id_servicios                      servicios                 @relation(fields: [servicio_id], references: [servicio_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_costos_indirectos_servicios")
+
+  @@index([costo_directo_id], map: "idx_costos_indirectos_costo_directo_id")
+  @@index([servicio_id], map: "idx_costos_indirectos_servicio_id")
+  @@map("costos_indirectos_servicios")
+}
+
+model maquinarias {
+  maquinaria_id        Int                    @id @default(autoincrement())
+  proveedor_id         Int?
+  nombre_maquinaria    String                 @db.VarChar(100)
+  marca                String?                @db.VarChar(50)
+  modelo               String?                @db.VarChar(50)
+  precio_por_hora      Decimal                @db.Decimal(18, 2)
+  descripcion          String?                @db.VarChar(200)
+  fecha_creacion       DateTime?              @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion  DateTime?              @db.Timestamptz(6)
+  fecha_eliminacion    DateTime?              @db.Timestamptz(6)
+  detalles_maquinarias detalles_maquinarias[]
+  proveedores          proveedores?           @relation(fields: [proveedor_id], references: [proveedor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_maquinarias_proveedores")
+
+  @@index([proveedor_id], map: "idx_maquinarias_proveedor_id")
+}
+
+model detalles_maquinarias {
+  detalle_maquinaria_id Int          @id @default(autoincrement())
+  proyecto_id           Int?
+  maquinaria_id         Int?
+  horas_utilizadas      Int?
+  fecha_inicio_renta    DateTime     @db.Date
+  fecha_fin_renta       DateTime?    @db.Date
+  estado                String?      @db.VarChar(30)
+  fecha_creacion        DateTime?    @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion   DateTime?    @db.Timestamptz(6)
+  fecha_eliminacion     DateTime?    @db.Timestamptz(6)
+  maquinarias           maquinarias? @relation(fields: [maquinaria_id], references: [maquinaria_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_maquinarias_maquinarias")
+  proyectos             proyectos?   @relation(fields: [proyecto_id], references: [proyecto_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_maquinarias_proyectos")
+
+  @@index([maquinaria_id], map: "idx_detalles_maquinarias_maquinaria_id")
+  @@index([proyecto_id], map: "idx_detalles_maquinarias_proyecto_id")
+}
+
+model vehiculos {
+  vehiculo_id         Int                  @id @default(autoincrement())
+  proveedor_id        Int?
+  marca               String               @db.VarChar(50)
+  modelo              String               @db.VarChar(50)
+  anio                Int?
+  placa               String               @unique @db.VarChar(15)
+  tipo_de_vehiculo    String?              @db.VarChar(30)
+  tipo_de_combustible String?              @db.VarChar(40)
+  estado              String?              @db.VarChar(20)
+  fecha_registro      DateTime?            @db.Date
+  fecha_creacion      DateTime?            @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?            @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?            @db.Timestamptz(6)
+  detalles_vehiculos  detalles_vehiculos[]
+  proveedores         proveedores?         @relation(fields: [proveedor_id], references: [proveedor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vehiculos_proveedores")
+
+  @@index([proveedor_id], map: "idx_vehiculos_proveedor_id")
+}
+
+model detalles_vehiculos {
+  detalle_vehiculo_id  Int       @id @default(autoincrement())
+  empleado_id          Int
+  vehiculo_id          Int
+  fecha_asignacion     DateTime  @db.Date
+  fecha_fin_asignacion DateTime? @db.Date
+  descripcion          String?   @db.VarChar(100)
+  fecha_creacion       DateTime? @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion  DateTime? @db.Timestamptz(6)
+  fecha_eliminacion    DateTime? @db.Timestamptz(6)
+  empleados            empleados @relation(fields: [empleado_id], references: [empleado_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_vehiculos_empleados")
+  vehiculos            vehiculos @relation(fields: [vehiculo_id], references: [vehiculo_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_vehiculos_vehiculos")
+
+  @@index([empleado_id], map: "idx_detalles_vehiculos_empleado_id")
+  @@index([vehiculo_id], map: "idx_detalles_vehiculos_vehiculo_id")
+}
+
+model usuarios {
+  usuario_id             Int                      @id @default(autoincrement())
+  empleado_id            Int
+  usuario                String                   @unique(map: "uq_usuarios_usuario") @db.VarChar(100)
+  contrasena             String                   @db.VarChar(200)
+  fecha_creacion         DateTime?                @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion    DateTime?                @db.Timestamptz(6)
+  fecha_eliminacion      DateTime?                @db.Timestamptz(6)
+  historial_alertas      historial_alertas[]
+  movimientos_inventario movimientos_inventario[]
+  permisos               permisos[]
+  reportes_generados     reportes_generados[]
+  empleados              empleados                @relation(fields: [empleado_id], references: [empleado_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_usuarios_empleados")
+
+  @@index([empleado_id], map: "idx_usuarios_empleado_id")
+}
+
+model compras {
+  compra_id           Int                @id @default(autoincrement())
+  proveedor_id        Int
+  empleado_id         Int?
+  numero_factura      String             @db.VarChar(50)
+  fecha_compra        DateTime           @default(dbgenerated("CURRENT_DATE")) @db.Date
+  monto_total         Decimal            @default(0) @db.Decimal(18, 2)
+  estado              String             @db.VarChar(50)
+  observaciones       String?            @db.VarChar(200)
+  fecha_creacion      DateTime?          @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?          @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?          @db.Timestamptz(6)
+  empleados           empleados?         @relation(fields: [empleado_id], references: [empleado_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_compras_empleados")
+  proveedores         proveedores        @relation(fields: [proveedor_id], references: [proveedor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_compras_proveedores")
+  detalles_compras    detalles_compras[]
+
+  @@index([empleado_id], map: "idx_compras_empleado_id")
+  @@index([proveedor_id], map: "idx_compras_proveedor_id")
+}
+
+model detalles_compras {
+  detalle_compra_id   Int        @id @default(autoincrement())
+  compra_id           Int
+  material_id         Int
+  cantidad            Int
+  precio_unitario     Decimal    @db.Decimal(18, 2)
+  subtotal            Decimal?   @default(dbgenerated("((cantidad)::numeric * precio_unitario)")) @ignore @db.Decimal(18, 2)
+  fecha_creacion      DateTime?  @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime?  @db.Timestamptz(6)
+  fecha_eliminacion   DateTime?  @db.Timestamptz(6)
+  compras             compras    @relation(fields: [compra_id], references: [compra_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_compras_compras")
+  materiales          materiales @relation(fields: [material_id], references: [material_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_compras_materiales")
+
+  @@index([compra_id], map: "idx_detalles_compras_compra_id")
+  @@index([material_id], map: "idx_detalles_compras_material_id")
+}
+
+model detalles_avaluos {
+  detalle_avaluo_id   Int       @id @default(autoincrement())
+  avaluo_id           Int
+  servicio_id         Int
+  actividad           String    @db.VarChar(100)
+  unidad_de_medida    String    @db.VarChar(50)
+  cantidad            Int
+  precio_unitario     Decimal   @db.Decimal(18, 2)
+  costo_venta         Decimal?  @default(dbgenerated("((cantidad)::numeric * precio_unitario)")) @ignore @db.Decimal(18, 2)
+  iva                 Decimal?  @default(dbgenerated("(((cantidad)::numeric * precio_unitario) * 0.15)")) @ignore @db.Decimal(18, 2)
+  total_costo_venta   Decimal?  @default(dbgenerated("(((cantidad)::numeric * precio_unitario) + (((cantidad)::numeric * precio_unitario) * 0.15))")) @ignore @db.Decimal(18, 2)
+  observaciones       String?   @db.VarChar(200)
+  fecha_creacion      DateTime? @default(now()) @db.Timestamp(6)
+  fecha_actualizacion DateTime? @db.Timestamp(6)
+  fecha_eliminacion   DateTime? @db.Timestamp(6)
+  Avaluos             avaluos   @relation(fields: [avaluo_id], references: [avaluo_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_avaluos_avaluos")
+  Servicios           servicios @relation(fields: [servicio_id], references: [servicio_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_detalles_avaluos_servicios")
+
+  @@index([avaluo_id], map: "idx_detalles_avaluos_avaluo_id")
+  @@index([servicio_id], map: "idx_detalles_avaluos_servicio_id")
+  @@map("detalles_avaluos")
+}
+
+model menu {
+  id_menu        Int        @id @default(autoincrement())
+  nombre         String     @db.VarChar(100)
+  es_submenu     Boolean?   @default(false)
+  url            String?    @db.VarChar(150)
+  id_menu_parent Int?
+  estado         Boolean?   @default(true)
+  show           Boolean?   @default(true)
+  parent         menu?      @relation("MenuParent", fields: [id_menu_parent], references: [id_menu], onUpdate: NoAction, map: "fk_menu_parent")
+  children       menu[]     @relation("MenuParent")
+  permisos       permisos[]
+}
+
+model permisos {
+  permiso_id          Int       @id @default(autoincrement())
+  usuario_id          Int
+  id_menu             Int
+  estado              Boolean?  @default(true)
+  fecha_creacion      DateTime? @default(now()) @db.Timestamp(6)
+  fecha_actualizacion DateTime? @db.Timestamp(6)
+  fecha_eliminacion   DateTime? @db.Timestamp(6)
+  menu                menu      @relation(fields: [id_menu], references: [id_menu], onDelete: Cascade, onUpdate: NoAction, map: "fk_permisos_menu")
+  usuarios            usuarios  @relation(fields: [usuario_id], references: [usuario_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_permisos_usuarios")
+
+  @@unique([usuario_id, id_menu], map: "uq_permisos_usuario_menu")
+  @@index([id_menu], map: "idx_permisos_menu_id")
+  @@index([usuario_id], map: "idx_permisos_usuario_id")
+}
+
+model reportes_generados {
+  reporte_id          Int       @id @default(autoincrement())
+  usuario_id          Int
+  nombre_reporte      String    @db.VarChar(150)
+  tipo_reporte        String    @db.VarChar(20)
+  descripcion         String?   @db.VarChar(200)
+  datos               Json?
+  archivo_url         String    @db.VarChar(255)
+  ip_generacion       String?   @db.VarChar(50)
+  fecha_creacion      DateTime? @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime? @db.Timestamptz(6)
+  fecha_eliminacion   DateTime? @db.Timestamptz(6)
+  usuario             usuarios  @relation(fields: [usuario_id], references: [usuario_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reportes_usuarios")
+
+  @@index([usuario_id], map: "idx_reportes_usuario_id")
+}
+
+model movimientos_inventario {
+  movimiento_id    Int        @id @default(autoincrement())
+  material_id      Int
+  tipo_movimiento  String     @db.VarChar(30)
+  cantidad         Int
+  stock_anterior   Int
+  stock_nuevo      Int
+  precio_unitario  Decimal?   @db.Decimal(18, 2)
+  costo_total      Decimal?   @default(dbgenerated("((cantidad)::numeric * precio_unitario)")) @ignore @db.Decimal(18, 2)
+  referencia       String?    @db.VarChar(100)
+  descripcion      String?    @db.VarChar(250)
+  usuario_id       Int?
+  fecha_movimiento DateTime?  @default(now()) @db.Timestamptz(6)
+  materiales       materiales @relation(fields: [material_id], references: [material_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_movimientos_materiales")
+  usuarios         usuarios?  @relation(fields: [usuario_id], references: [usuario_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_movimientos_usuarios")
+
+  @@index([fecha_movimiento], map: "idx_movimientos_inventario_fecha")
+  @@index([material_id], map: "idx_movimientos_inventario_material_id")
+  @@index([usuario_id], map: "idx_movimientos_inventario_usuario_id")
+}
+
+model alertas_inventario {
+  alerta_id      Int        @id @default(autoincrement())
+  material_id    Int
+  tipo_alerta    String     @db.VarChar(50)
+  mensaje        String     @db.VarChar(250)
+  stock_actual   Int
+  stock_minimo   Int        @default(10)
+  estado         String?    @default("Pendiente") @db.VarChar(30)
+  fecha_creacion DateTime?  @default(now()) @db.Timestamptz(6)
+  fecha_atendida DateTime?  @db.Timestamptz(6)
+  materiales     materiales @relation(fields: [material_id], references: [material_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_alertas_materiales")
+
+  @@index([estado], map: "idx_alertas_inventario_estado")
+  @@index([material_id], map: "idx_alertas_inventario_material_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model historial_alertas {
+  alerta_id           Int       @id @default(autoincrement())
+  usuario_id          Int?
+  tipo                String    @db.VarChar(50)
+  titulo              String    @db.VarChar(150)
+  mensaje             String    @db.VarChar(300)
+  modulo              String?   @db.VarChar(100)
+  referencia_id       Int?
+  prioridad           String    @default("Media") @db.VarChar(20)
+  leida               Boolean   @default(false)
+  fecha_creacion      DateTime? @default(now()) @db.Timestamptz(6)
+  fecha_actualizacion DateTime? @db.Timestamptz(6)
+  fecha_eliminacion   DateTime? @db.Timestamptz(6)
+  usuarios            usuarios? @relation(fields: [usuario_id], references: [usuario_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_historial_alertas_usuario")
+}

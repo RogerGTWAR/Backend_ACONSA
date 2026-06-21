@@ -1,0 +1,42 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend del sistema ACONSA con Prisma, Express y PostgreSQL",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "NODE_ENV=production node src/server.js",
+    "postinstall": "npx prisma generate && npx prisma migrate resolve --rolled-back 20251027_init || true && npx prisma migrate deploy && npm run seed",
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": [],
+  "author": "RogerGTWAR",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-validator": "^7.2.1",
+    "google-auth-library": "^10.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "libreoffice-convert": "^1.7.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.6",
+    "pdfkit": "^0.17.2",
+    "pdfmake": "^0.2.7",
+    "pg": "^8.16.3",
+    "simple-oauth2": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prisma": "^6.16.2"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}

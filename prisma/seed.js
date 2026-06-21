@@ -1,13 +1,89 @@
-/*import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
+
+/* ============================================================
+   FUNCIÓN AUXILIAR PARA CREAR O ACTUALIZAR MENÚS
+============================================================ */
+
+async function upsertMenuPorNombre({
+  nombre,
+  es_submenu,
+  url,
+  id_menu_parent,
+  estado = true,
+  show = true,
+}) {
+  const menuExistente = await prisma.menu.findFirst({
+    where: { nombre },
+  });
+
+  if (menuExistente) {
+    return await prisma.menu.update({
+      where: {
+        id_menu: menuExistente.id_menu,
+      },
+      data: {
+        es_submenu,
+        url,
+        id_menu_parent,
+        estado,
+        show,
+      },
+    });
+  }
+
+  return await prisma.menu.create({
+    data: {
+      nombre,
+      es_submenu,
+      url,
+      id_menu_parent,
+      estado,
+      show,
+    },
+  });
+}
+
+/* ============================================================
+   FUNCIÓN AUXILIAR PARA CREAR PERMISOS SIN DUPLICAR
+============================================================ */
+
+async function crearPermisoSiNoExiste(usuario_id, id_menu) {
+  const permisoExistente = await prisma.permisos.findFirst({
+    where: {
+      usuario_id,
+      id_menu,
+    },
+  });
+
+  if (permisoExistente) {
+    return await prisma.permisos.update({
+      where: {
+        permiso_id: permisoExistente.permiso_id,
+      },
+      data: {
+        estado: true,
+      },
+    });
+  }
+
+  return await prisma.permisos.create({
+    data: {
+      usuario_id,
+      id_menu,
+      estado: true,
+    },
+  });
+}
 
 async function main() {
   console.log("Iniciando inserción de datos iniciales...");
 
-  // ============================================================
-  // 1. ROLES
-  // ============================================================
+  /* ============================================================
+     1. ROLES
+  ============================================================ */
 
   await prisma.roles.createMany({
     data: [
@@ -44,9 +120,9 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // ============================================================
-  // 2. CATEGORÍAS DE MATERIALES
-  // ============================================================
+  /* ============================================================
+     2. CATEGORÍAS DE MATERIALES
+  ============================================================ */
 
   await prisma.categorias.createMany({
     data: [
@@ -74,9 +150,9 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // ============================================================
-  // 3. CATEGORÍAS DE PROVEEDORES
-  // ============================================================
+  /* ============================================================
+     3. CATEGORÍAS DE PROVEEDORES
+  ============================================================ */
 
   await prisma.categorias_proveedor.createMany({
     data: [
@@ -104,17 +180,19 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // ============================================================
-  // 4. EMPLEADO ADMINISTRADOR
-  // Teléfono solo números
-  // Cédula sin guiones
-  // ============================================================
+  /* ============================================================
+     4. EMPLEADO ADMINISTRADOR
+  ============================================================ */
 
   const rolAdministradorGeneral = await prisma.roles.findFirst({
     where: {
       cargo: "Administrador General",
     },
   });
+
+  if (!rolAdministradorGeneral) {
+    throw new Error("No se encontró el rol Administrador General.");
+  }
 
   const empleadoAdminExistente = await prisma.empleados.findFirst({
     where: {
@@ -129,9 +207,9 @@ async function main() {
     },
   });
 
-  let empleadoAdmin = empleadoAdminExistente;
+  let empleadoAdmin;
 
-  if (!empleadoAdmin) {
+  if (!empleadoAdminExistente) {
     empleadoAdmin = await prisma.empleados.create({
       data: {
         nombres: "Administrador",
@@ -150,24 +228,29 @@ async function main() {
   } else {
     empleadoAdmin = await prisma.empleados.update({
       where: {
-        empleado_id: empleadoAdmin.empleado_id,
+        empleado_id: empleadoAdminExistente.empleado_id,
       },
       data: {
+        nombres: "Administrador",
+        apellidos: "General",
         cedula: "0000000000000A",
+        rol_id: rolAdministradorGeneral.rol_id,
+        direccion: "San Carlos, Río San Juan",
+        pais: "Nicaragua",
         telefono: "00000000",
         correo: "admin@aconsa.com",
-        rol_id: rolAdministradorGeneral.rol_id,
+        reportes: null,
       },
     });
   }
 
-  // ============================================================
-  // 5. USUARIO ADMINISTRADOR
-  // Usuario: admin
-  // Contraseña: Admin123*
-  // Nota: aquí se guarda la contraseña directa.
-  // Si usas bcrypt en tu backend, cámbiala por el hash generado.
-  // ============================================================
+  /* ============================================================
+     5. USUARIO ADMINISTRADOR
+     Usuario: admin
+     Contraseña: Admin123*
+  ============================================================ */
+
+  const contrasenaHash = await bcrypt.hash("Admin123*", 10);
 
   const usuarioAdminExistente = await prisma.usuarios.findFirst({
     where: {
@@ -175,441 +258,182 @@ async function main() {
     },
   });
 
-  let usuarioAdmin = usuarioAdminExistente;
+  let usuarioAdmin;
 
-  if (!usuarioAdmin) {
+  if (!usuarioAdminExistente) {
     usuarioAdmin = await prisma.usuarios.create({
       data: {
         empleado_id: empleadoAdmin.empleado_id,
         usuario: "admin",
-        contrasena: "Admin123*",
+        contrasena: contrasenaHash,
       },
     });
   } else {
     usuarioAdmin = await prisma.usuarios.update({
       where: {
-        usuario_id: usuarioAdmin.usuario_id,
+        usuario_id: usuarioAdminExistente.usuario_id,
       },
       data: {
         empleado_id: empleadoAdmin.empleado_id,
+        contrasena: contrasenaHash,
       },
     });
   }
 
-  // ============================================================
-  // 6. MENÚS PRINCIPALES
-  // ============================================================
+  /* ============================================================
+     6. MENÚS PRINCIPALES
+  ============================================================ */
 
-  await prisma.menu.createMany({
-    data: [
-      {
-        nombre: "Inicio",
-        es_submenu: false,
-        url: "/",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Dashboard",
-        es_submenu: false,
-        url: "/dashboard",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Registro",
-        es_submenu: false,
-        url: null,
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Proyectos",
-        es_submenu: false,
-        url: "/proyectos",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Vehículos",
-        es_submenu: false,
-        url: "/vehiculos",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Compras",
-        es_submenu: false,
-        url: "/compras",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Materiales",
-        es_submenu: false,
-        url: "/materiales",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Servicios",
-        es_submenu: false,
-        url: "/servicios",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Menu",
-        es_submenu: false,
-        url: "/menus",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Avaluo",
-        es_submenu: false,
-        url: "/avaluos",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Movimientos",
-        es_submenu: false,
-        url: "/movimientos_inventario",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Notificaciones",
-        es_submenu: false,
-        url: "/notificaciones",
-        id_menu_parent: null,
-        estado: true,
-        show: true,
-      },
-    ],
-    skipDuplicates: true,
+  const menuInicio = await upsertMenuPorNombre({
+    nombre: "Inicio",
+    es_submenu: false,
+    url: "/",
+    id_menu_parent: null,
   });
 
-  // ============================================================
-  // 7. CORREGIR MENÚS PRINCIPALES SI YA EXISTÍAN
-  // ============================================================
-
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Inicio",
-    },
-    data: {
-      es_submenu: false,
-      url: "/",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuDashboard = await upsertMenuPorNombre({
+    nombre: "Dashboard",
+    es_submenu: false,
+    url: "/dashboard",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Dashboard",
-    },
-    data: {
-      es_submenu: false,
-      url: "/dashboard",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuRegistro = await upsertMenuPorNombre({
+    nombre: "Registro",
+    es_submenu: false,
+    url: null,
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Registro",
-    },
-    data: {
-      es_submenu: false,
-      url: null,
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuProyectos = await upsertMenuPorNombre({
+    nombre: "Proyectos",
+    es_submenu: false,
+    url: "/proyectos",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Proyectos",
-    },
-    data: {
-      es_submenu: false,
-      url: "/proyectos",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuVehiculos = await upsertMenuPorNombre({
+    nombre: "Vehículos",
+    es_submenu: false,
+    url: "/vehiculos",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Vehículos",
-    },
-    data: {
-      es_submenu: false,
-      url: "/vehiculos",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuCompras = await upsertMenuPorNombre({
+    nombre: "Compras",
+    es_submenu: false,
+    url: "/compras",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Compras",
-    },
-    data: {
-      es_submenu: false,
-      url: "/compras",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuMateriales = await upsertMenuPorNombre({
+    nombre: "Materiales",
+    es_submenu: false,
+    url: "/materiales",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Materiales",
-    },
-    data: {
-      es_submenu: false,
-      url: "/materiales",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuServicios = await upsertMenuPorNombre({
+    nombre: "Servicios",
+    es_submenu: false,
+    url: "/servicios",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Servicios",
-    },
-    data: {
-      es_submenu: false,
-      url: "/servicios",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuMenu = await upsertMenuPorNombre({
+    nombre: "Menu",
+    es_submenu: false,
+    url: "/menus",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Menu",
-    },
-    data: {
-      es_submenu: false,
-      url: "/menus",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuAvaluo = await upsertMenuPorNombre({
+    nombre: "Avaluo",
+    es_submenu: false,
+    url: "/avaluos",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Avaluo",
-    },
-    data: {
-      es_submenu: false,
-      url: "/avaluos",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuMovimientos = await upsertMenuPorNombre({
+    nombre: "Movimientos",
+    es_submenu: false,
+    url: "/movimientos_inventario",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Movimientos",
-    },
-    data: {
-      es_submenu: false,
-      url: "/movimientos_inventario",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  const menuNotificaciones = await upsertMenuPorNombre({
+    nombre: "Notificaciones",
+    es_submenu: false,
+    url: "/notificaciones",
+    id_menu_parent: null,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Notificaciones",
-    },
-    data: {
-      es_submenu: false,
-      url: "/notificaciones",
-      id_menu_parent: null,
-      estado: true,
-      show: true,
-    },
+  /* ============================================================
+     7. SUBMENÚS DENTRO DE REGISTRO
+  ============================================================ */
+
+  const submenuEmpleados = await upsertMenuPorNombre({
+    nombre: "Empleados",
+    es_submenu: true,
+    url: "/empleados",
+    id_menu_parent: menuRegistro.id_menu,
   });
 
-  // ============================================================
-  // 8. SUBMENÚS DENTRO DE REGISTRO
-  // ============================================================
-
-  const menuRegistro = await prisma.menu.findFirst({
-    where: {
-      nombre: "Registro",
-    },
+  const submenuClientes = await upsertMenuPorNombre({
+    nombre: "Clientes",
+    es_submenu: true,
+    url: "/clientes",
+    id_menu_parent: menuRegistro.id_menu,
   });
 
-  await prisma.menu.createMany({
-    data: [
-      {
-        nombre: "Empleados",
-        es_submenu: true,
-        url: "/empleados",
-        id_menu_parent: menuRegistro.id_menu,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Clientes",
-        es_submenu: true,
-        url: "/clientes",
-        id_menu_parent: menuRegistro.id_menu,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Proveedores",
-        es_submenu: true,
-        url: "/proveedores",
-        id_menu_parent: menuRegistro.id_menu,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Permisos",
-        es_submenu: true,
-        url: "/permisos",
-        id_menu_parent: menuRegistro.id_menu,
-        estado: true,
-        show: true,
-      },
-      {
-        nombre: "Usuarios",
-        es_submenu: true,
-        url: "/usuarios",
-        id_menu_parent: menuRegistro.id_menu,
-        estado: true,
-        show: true,
-      },
-    ],
-    skipDuplicates: true,
+  const submenuProveedores = await upsertMenuPorNombre({
+    nombre: "Proveedores",
+    es_submenu: true,
+    url: "/proveedores",
+    id_menu_parent: menuRegistro.id_menu,
   });
 
-  // ============================================================
-  // 9. CORREGIR SUBMENÚS SI YA EXISTÍAN
-  // ============================================================
-
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Empleados",
-    },
-    data: {
-      es_submenu: true,
-      url: "/empleados",
-      id_menu_parent: menuRegistro.id_menu,
-      estado: true,
-      show: true,
-    },
+  const submenuPermisos = await upsertMenuPorNombre({
+    nombre: "Permisos",
+    es_submenu: true,
+    url: "/permisos",
+    id_menu_parent: menuRegistro.id_menu,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Clientes",
-    },
-    data: {
-      es_submenu: true,
-      url: "/clientes",
-      id_menu_parent: menuRegistro.id_menu,
-      estado: true,
-      show: true,
-    },
+  const submenuUsuarios = await upsertMenuPorNombre({
+    nombre: "Usuarios",
+    es_submenu: true,
+    url: "/usuarios",
+    id_menu_parent: menuRegistro.id_menu,
   });
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Proveedores",
-    },
-    data: {
-      es_submenu: true,
-      url: "/proveedores",
-      id_menu_parent: menuRegistro.id_menu,
-      estado: true,
-      show: true,
-    },
-  });
+  /* ============================================================
+     8. PERMISOS COMPLETOS PARA EL ADMINISTRADOR
+  ============================================================ */
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Permisos",
-    },
-    data: {
-      es_submenu: true,
-      url: "/permisos",
-      id_menu_parent: menuRegistro.id_menu,
-      estado: true,
-      show: true,
-    },
-  });
+  const menusDelSistema = [
+    menuInicio,
+    menuDashboard,
+    menuRegistro,
+    menuProyectos,
+    menuVehiculos,
+    menuCompras,
+    menuMateriales,
+    menuServicios,
+    menuMenu,
+    menuAvaluo,
+    menuMovimientos,
+    menuNotificaciones,
+    submenuEmpleados,
+    submenuClientes,
+    submenuProveedores,
+    submenuPermisos,
+    submenuUsuarios,
+  ];
 
-  await prisma.menu.updateMany({
-    where: {
-      nombre: "Usuarios",
-    },
-    data: {
-      es_submenu: true,
-      url: "/usuarios",
-      id_menu_parent: menuRegistro.id_menu,
-      estado: true,
-      show: true,
-    },
-  });
-
-  // ============================================================
-  // 10. PERMISOS COMPLETOS PARA EL ADMINISTRADOR
-  // ============================================================
-
-  const menusActivos = await prisma.menu.findMany({
-    where: {
-      estado: true,
-    },
-    select: {
-      id_menu: true,
-    },
-  });
-
-  const permisosAdmin = menusActivos.map((menu) => ({
-    usuario_id: usuarioAdmin.usuario_id,
-    id_menu: menu.id_menu,
-    estado: true,
-  }));
-
-  await prisma.permisos.createMany({
-    data: permisosAdmin,
-    skipDuplicates: true,
-  });
+  for (const menu of menusDelSistema) {
+    await crearPermisoSiNoExiste(usuarioAdmin.usuario_id, menu.id_menu);
+  }
 
   await prisma.permisos.updateMany({
     where: {
@@ -631,4 +455,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-*/

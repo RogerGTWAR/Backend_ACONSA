@@ -2,6 +2,33 @@
 -- DATABASE STRUCTURE FOR ACONSA
 -- PostgreSQL
 -- ===========================================
+DROP TABLE IF EXISTS public.reportes_generados CASCADE;
+DROP TABLE IF EXISTS public.permisos CASCADE;
+DROP TABLE IF EXISTS public.menu CASCADE;
+DROP TABLE IF EXISTS public.detalles_avaluos CASCADE;
+DROP TABLE IF EXISTS public.detalles_compras CASCADE;
+DROP TABLE IF EXISTS public.movimientos_inventario CASCADE;
+DROP TABLE IF EXISTS public.alertas_inventario CASCADE;
+DROP TABLE IF EXISTS public.compras CASCADE;
+DROP TABLE IF EXISTS public.historial_alertas CASCADE;
+DROP TABLE IF EXISTS public.usuarios CASCADE;
+DROP TABLE IF EXISTS public.detalles_vehiculos CASCADE;
+DROP TABLE IF EXISTS public.vehiculos CASCADE;
+DROP TABLE IF EXISTS public.detalles_maquinarias CASCADE;
+DROP TABLE IF EXISTS public.maquinarias CASCADE;
+DROP TABLE IF EXISTS public.costos_indirectos_servicios CASCADE;
+DROP TABLE IF EXISTS public.costos_directos_servicios CASCADE;
+DROP TABLE IF EXISTS public.servicios CASCADE;
+DROP TABLE IF EXISTS public.avaluos CASCADE;
+DROP TABLE IF EXISTS public.materiales CASCADE;
+DROP TABLE IF EXISTS public.categorias CASCADE;
+DROP TABLE IF EXISTS public.detalles_empleados CASCADE;
+DROP TABLE IF EXISTS public.proyectos CASCADE;
+DROP TABLE IF EXISTS public.proveedores CASCADE;
+DROP TABLE IF EXISTS public.categorias_proveedor CASCADE;
+DROP TABLE IF EXISTS public.clientes CASCADE;
+DROP TABLE IF EXISTS public.empleados CASCADE;
+DROP TABLE IF EXISTS public.roles CASCADE;
 
 -- ROLES
 CREATE TABLE roles (

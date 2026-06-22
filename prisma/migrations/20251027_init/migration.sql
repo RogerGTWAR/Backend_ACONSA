@@ -1379,3 +1379,86 @@ CREATE TRIGGER trg_entrada_desde_compra
 AFTER INSERT ON public.detalles_compras
 FOR EACH ROW
 EXECUTE FUNCTION public.registrar_entrada_desde_compra();
+
+-- ============================================================
+-- 1. CORREGIR EMPLEADOS QUE USAN ROLES DUPLICADOS
+-- ============================================================
+
+UPDATE public.empleados e
+SET rol_id = r_min.rol_id_min
+FROM (
+    SELECT cargo, MIN(rol_id) AS rol_id_min
+    FROM public.roles
+    GROUP BY cargo
+) r_min
+JOIN public.roles r_dup
+ON r_dup.cargo = r_min.cargo
+WHERE e.rol_id = r_dup.rol_id
+AND r_dup.rol_id <> r_min.rol_id_min;
+
+
+-- ============================================================
+-- 2. ELIMINAR ROLES DUPLICADOS
+-- Se conserva el rol con menor rol_id
+-- ============================================================
+
+DELETE FROM public.roles r
+USING public.roles r2
+WHERE r.rol_id > r2.rol_id
+AND r.cargo = r2.cargo;
+
+
+-- ============================================================
+-- 3. CORREGIR MATERIALES QUE USAN CATEGORÍAS DUPLICADAS
+-- ============================================================
+
+UPDATE public.materiales m
+SET categoria_id = c_min.categoria_id_min
+FROM (
+    SELECT nombre_categoria, MIN(categoria_id) AS categoria_id_min
+    FROM public.categorias
+    GROUP BY nombre_categoria
+) c_min
+JOIN public.categorias c_dup
+ON c_dup.nombre_categoria = c_min.nombre_categoria
+WHERE m.categoria_id = c_dup.categoria_id
+AND c_dup.categoria_id <> c_min.categoria_id_min;
+
+
+-- ============================================================
+-- 4. ELIMINAR CATEGORÍAS DUPLICADAS
+-- Se conserva la categoría con menor categoria_id
+-- ============================================================
+
+DELETE FROM public.categorias c
+USING public.categorias c2
+WHERE c.categoria_id > c2.categoria_id
+AND c.nombre_categoria = c2.nombre_categoria;
+
+
+-- ============================================================
+-- 5. CORREGIR PROVEEDORES QUE USAN CATEGORÍAS PROVEEDOR DUPLICADAS
+-- ============================================================
+
+UPDATE public.proveedores p
+SET categoria_proveedor_id = cp_min.categoria_proveedor_id_min
+FROM (
+    SELECT nombre_categoria, MIN(categoria_proveedor_id) AS categoria_proveedor_id_min
+    FROM public.categorias_proveedor
+    GROUP BY nombre_categoria
+) cp_min
+JOIN public.categorias_proveedor cp_dup
+ON cp_dup.nombre_categoria = cp_min.nombre_categoria
+WHERE p.categoria_proveedor_id = cp_dup.categoria_proveedor_id
+AND cp_dup.categoria_proveedor_id <> cp_min.categoria_proveedor_id_min;
+
+
+-- ============================================================
+-- 6. ELIMINAR CATEGORÍAS PROVEEDOR DUPLICADAS
+-- Se conserva la categoría con menor categoria_proveedor_id
+-- ============================================================
+
+DELETE FROM public.categorias_proveedor cp
+USING public.categorias_proveedor cp2
+WHERE cp.categoria_proveedor_id > cp2.categoria_proveedor_id
+AND cp.nombre_categoria = cp2.nombre_categoria;

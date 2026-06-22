@@ -26,6 +26,13 @@ const sanitizeUser = (u) => ({
   empleado_id: u.empleado_id,
 });
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 1000 * 60 * 60 * 8,
+};
+
 export const login = async (req, res) => {
   const { usuario, contrasena } = req.body;
 
@@ -79,12 +86,7 @@ export const login = async (req, res) => {
       usuario: user.usuario,
     });
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 8,
-    });
+    res.cookie("token", token, cookieOptions);
 
     await registrarAlerta({
       usuario_id: user.usuario_id,
@@ -96,10 +98,14 @@ export const login = async (req, res) => {
       prioridad: "Baja",
     });
 
+    const userSafe = sanitizeUser(user);
+
     return res.json({
       ok: true,
       msg: "Login exitoso",
-      usuario: sanitizeUser(user),
+      token,
+      user: userSafe,
+      usuario: userSafe,
     });
   } catch (error) {
     console.error("[LOGIN ERROR]:", error);
@@ -338,7 +344,7 @@ export const forgotPassword = async (req, res) => {
       expira: Date.now() + 10 * 60 * 1000,
     });
 
-    await Mailer.sendMail({
+    const enviado = await Mailer.sendMail({
       to: user.correo,
       subject: "Código de recuperación - ACONSA",
       html: `
@@ -367,22 +373,35 @@ export const forgotPassword = async (req, res) => {
           </div>
 
           <p>Este código vence en 10 minutos.</p>
-
           <p>Si no solicitaste este cambio, ignora este mensaje.</p>
         </div>
       `,
       text: `Tu código de recuperación es: ${codigo}`,
     });
 
-    await registrarAlerta({
-      usuario_id: user.usuario_id,
-      tipo: "Recuperación de contraseña",
-      titulo: "Código de recuperación enviado",
-      mensaje: `Se envió un código de recuperación al correo del usuario "${user.usuario}".`,
-      modulo: "Autenticación",
-      referencia_id: user.usuario_id,
-      prioridad: "Media",
-    });
+    if (!enviado) {
+      resetCodes.delete(String(user.usuario_id));
+
+      return sendError(
+        res,
+        500,
+        "No se pudo enviar el correo de recuperación. Revise la configuración SMTP."
+      );
+    }
+
+    try {
+      await registrarAlerta({
+        usuario_id: user.usuario_id,
+        tipo: "Recuperación de contraseña",
+        titulo: "Código de recuperación enviado",
+        mensaje: `Se envió un código de recuperación al correo del usuario "${user.usuario}".`,
+        modulo: "Autenticación",
+        referencia_id: user.usuario_id,
+        prioridad: "Media",
+      });
+    } catch (alertError) {
+      console.error("[ALERTA FORGOT PASSWORD ERROR]:", alertError);
+    }
 
     return res.json({
       ok: true,
@@ -390,7 +409,12 @@ export const forgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("[FORGOT ERROR]:", error);
-    return sendError(res, 500, error.message || "Error interno");
+
+    return sendError(
+      res,
+      500,
+      error.message || "Error interno al enviar el código"
+    );
   }
 };
 
@@ -499,6 +523,10 @@ export const me = async (req, res) => {
 
     const result = await pool.query(query, [usuarioId]);
 
+    if (result.rowCount === 0) {
+      return sendError(res, 404, "Usuario no encontrado");
+    }
+
     return res.json({
       ok: true,
       user: result.rows[0],
@@ -525,7 +553,11 @@ export const logout = async (req, res) => {
     });
   }
 
-  res.clearCookie("token");
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
 
   return res.json({
     ok: true,

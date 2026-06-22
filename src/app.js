@@ -38,7 +38,7 @@ dotenv.config();
 const app = express();
 
 /* ============================================================
-   MIDDLEWARES PRINCIPALES
+   MIDDLEWARES GENERALES
 ============================================================ */
 
 app.use(express.json({ limit: "10mb" }));
@@ -49,51 +49,43 @@ app.use(cookieParser());
    CONFIGURACIÓN DE CORS
 ============================================================ */
 
-const normalizeOrigin = (url) => {
-  if (!url) return null;
-  return url.replace(/\/$/, "");
-};
-
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:4000",
   "http://localhost:3000",
 
+  // Producción en Vercel
   "https://frontend-aconsa.vercel.app",
-  "https://frontend-aconsa-rogergtwars-projects.vercel.app",
 
+  // Variable de entorno
   process.env.FRONTEND_URL
-]
-  .filter(Boolean)
-  .map(normalizeOrigin);
-
-const isAllowedVercelPreview = (origin) => {
-  if (!origin) return false;
-
-  const normalizedOrigin = normalizeOrigin(origin);
-
-  return /^https:\/\/frontend-aconsa.*\.vercel\.app$/.test(normalizedOrigin);
-};
+].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Permite herramientas como Postman, Thunder Client o requests sin Origin
       if (!origin) {
         return callback(null, true);
       }
 
-      const normalizedOrigin = normalizeOrigin(origin);
+      // Permite cualquier puerto local para desarrollo
+      const isLocalhost =
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:");
 
-      if (
-        allowedOrigins.includes(normalizedOrigin) ||
-        isAllowedVercelPreview(normalizedOrigin)
-      ) {
+      if (allowedOrigins.includes(origin) || isLocalhost) {
         return callback(null, true);
       }
 
       console.warn("Bloqueado por CORS:", origin);
-      return callback(new Error("No permitido por CORS"));
+      return callback(new Error(`Origen no permitido por CORS: ${origin}`));
     },
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 
@@ -109,7 +101,7 @@ app.use(
 );
 
 /* ============================================================
-   RUTAS DE PRUEBA
+   RUTAS BASE
 ============================================================ */
 
 app.get("/health", (_req, res) => {
@@ -122,12 +114,12 @@ app.get("/health", (_req, res) => {
 app.get("/", (_req, res) => {
   res.json({
     ok: true,
-    msg: "API funcionando correctamente en Render"
+    msg: "API funcionando correctamente"
   });
 });
 
 /* ============================================================
-   RUTAS DEL SISTEMA ACONSA
+   RUTAS DE LA API
 ============================================================ */
 
 app.use("/api/avaluos", AvaluoRoutes);
@@ -160,7 +152,7 @@ app.use("/api/reportes", ReportesRouter);
 app.use("/api/historial_alertas", HistorialAlertasRoutes);
 
 /* ============================================================
-   MANEJO DE RUTAS NO ENCONTRADAS
+   RUTA NO ENCONTRADA
 ============================================================ */
 
 app.use((req, res) => {
@@ -171,7 +163,7 @@ app.use((req, res) => {
 });
 
 /* ============================================================
-   MANEJO GENERAL DE ERRORES
+   MANEJO GLOBAL DE ERRORES
 ============================================================ */
 
 app.use((err, _req, res, _next) => {

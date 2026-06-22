@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "NODE_ENV=production node src/server.js",
-    "postinstall": "npx prisma generate && npx prisma migrate resolve --rolled-back 20251027_init || true && npx prisma migrate deploy && npm run seed",
-    "seed": "node prisma/seed.js"
+    "postinstall": "npx prisma generate",
+    "migrate": "npx prisma migrate deploy",
+    "seed": "node prisma/seed.js",
+    "cleanup": "node prisma/cleanupDuplicados.js"
   },
   "keywords": [],
   "author": "RogerGTWAR",

@@ -1,10 +1,21 @@
 import bcrypt from "bcrypt";
 import { pool } from "../config/db.js";
-import { signToken, verifyToken } from "../config/jwt.js";
 import Mailer from "../utils/Mailer.js";
+import { signToken } from "../config/jwt.js";
 import { registrarAlerta } from "../utils/registrarAlerta.js";
 
 const SALT = 10;
+
+/*
+  Códigos temporales en memoria.
+  No se guardan en SQL.
+  Si reinicias el backend, los códigos se borran.
+*/
+const resetCodes = new Map();
+
+const generarCodigo = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 const sendError = (res, status, msg) =>
   res.status(status).json({ ok: false, msg });
@@ -26,10 +37,11 @@ export const login = async (req, res) => {
     const query = `
       SELECT usuario_id, usuario, contrasena, empleado_id 
       FROM usuarios 
-      WHERE usuario = $1 AND fecha_eliminacion IS NULL
+      WHERE usuario = $1 
+        AND fecha_eliminacion IS NULL
     `;
 
-    const result = await pool.query(query, [usuario]);
+    const result = await pool.query(query, [usuario.trim()]);
 
     if (result.rowCount === 0) {
       await registrarAlerta({
@@ -122,7 +134,6 @@ export const register = async (req, res) => {
     }
 
     const empleado = empCheck.rows[0];
-    const empleado_id = empleado.empleado_id;
 
     const userByEmp = await pool.query(
       `
@@ -131,7 +142,7 @@ export const register = async (req, res) => {
       WHERE empleado_id = $1
         AND fecha_eliminacion IS NULL
       `,
-      [empleado_id]
+      [empleado.empleado_id]
     );
 
     if (userByEmp.rowCount > 0) {
@@ -142,7 +153,8 @@ export const register = async (req, res) => {
       `
       SELECT 1
       FROM usuarios
-      WHERE usuario = $1
+      WHERE LOWER(usuario) = LOWER($1)
+        AND fecha_eliminacion IS NULL
       `,
       [usuario.trim()]
     );
@@ -159,7 +171,7 @@ export const register = async (req, res) => {
       VALUES ($1, $2, $3)
       RETURNING usuario_id, usuario, empleado_id, fecha_creacion
       `,
-      [empleado_id, usuario.trim(), hash]
+      [empleado.empleado_id, usuario.trim(), hash]
     );
 
     const nuevoUsuario = insert.rows[0];
@@ -234,7 +246,6 @@ export const autoRegister = async (req, res) => {
           .toLowerCase()}`;
 
     const randomPassword = Math.random().toString(36).slice(-8);
-
     const hash = await bcrypt.hash(randomPassword, SALT);
 
     const nuevo = await pool.query(
@@ -283,76 +294,186 @@ export const forgotPassword = async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT usuario_id, usuario FROM usuarios WHERE usuario = $1",
-      [usuario]
+      `
+      SELECT 
+        u.usuario_id,
+        u.usuario,
+        e.correo,
+        e.nombres,
+        e.apellidos
+      FROM usuarios u
+      INNER JOIN empleados e ON e.empleado_id = u.empleado_id
+      WHERE 
+        u.fecha_eliminacion IS NULL
+        AND e.fecha_eliminacion IS NULL
+        AND (
+          LOWER(u.usuario) = LOWER($1)
+          OR LOWER(e.correo) = LOWER($1)
+        )
+      LIMIT 1
+      `,
+      [usuario.trim()]
     );
 
     if (result.rowCount === 0) {
-      return sendError(res, 404, "Usuario no encontrado");
+      return sendError(res, 404, "Usuario o correo no encontrado");
     }
 
     const user = result.rows[0];
 
-    const token = signToken({ usuario_id: user.usuario_id });
+    if (!user.correo) {
+      return sendError(
+        res,
+        400,
+        "El empleado vinculado a este usuario no tiene correo registrado"
+      );
+    }
 
-    const link = `${process.env.FRONTEND_URL}/recuperar?token=${token}`;
+    const codigo = generarCodigo();
+
+    resetCodes.set(String(user.usuario_id), {
+      codigo,
+      usuario_id: user.usuario_id,
+      usuario: user.usuario,
+      expira: Date.now() + 10 * 60 * 1000,
+    });
 
     await Mailer.sendMail({
-      to: usuario,
-      subject: "Restablecer contraseña",
+      to: user.correo,
+      subject: "Código de recuperación - ACONSA",
       html: `
-        <p>Has solicitado cambiar tu contraseña.</p>
-        <p><a href="${link}">Haz clic aquí para continuar</a></p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>Recuperación de contraseña</h2>
+
+          <p>Hola ${user.nombres || ""} ${user.apellidos || ""},</p>
+
+          <p>
+            Se solicitó recuperar la contraseña del usuario 
+            <strong>${user.usuario}</strong>.
+          </p>
+
+          <p>Tu código de verificación es:</p>
+
+          <div style="
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            background: #f1f5f9;
+            padding: 14px 20px;
+            border-radius: 10px;
+            width: fit-content;
+          ">
+            ${codigo}
+          </div>
+
+          <p>Este código vence en 10 minutos.</p>
+
+          <p>Si no solicitaste este cambio, ignora este mensaje.</p>
+        </div>
       `,
+      text: `Tu código de recuperación es: ${codigo}`,
     });
 
     await registrarAlerta({
       usuario_id: user.usuario_id,
       tipo: "Recuperación de contraseña",
-      titulo: "Solicitud de recuperación",
-      mensaje: `El usuario "${user.usuario}" solicitó restablecer su contraseña.`,
+      titulo: "Código de recuperación enviado",
+      mensaje: `Se envió un código de recuperación al correo del usuario "${user.usuario}".`,
       modulo: "Autenticación",
       referencia_id: user.usuario_id,
       prioridad: "Media",
     });
 
-    return res.json({ ok: true, msg: "Correo enviado" });
+    return res.json({
+      ok: true,
+      msg: "Código enviado al correo registrado",
+    });
   } catch (error) {
     console.error("[FORGOT ERROR]:", error);
-    return sendError(res, 500, "Error interno");
+    return sendError(res, 500, error.message || "Error interno");
   }
 };
 
 export const resetPassword = async (req, res) => {
-  const { token, contrasena } = req.body;
+  const { usuario, codigo, contrasena } = req.body;
 
-  if (!token || !contrasena) {
-    return sendError(res, 400, "token y contrasena requeridos");
+  if (!usuario || !codigo || !contrasena) {
+    return sendError(res, 400, "usuario, codigo y contrasena son requeridos");
   }
 
   try {
-    const data = verifyToken(token);
+    const result = await pool.query(
+      `
+      SELECT 
+        u.usuario_id,
+        u.usuario
+      FROM usuarios u
+      INNER JOIN empleados e ON e.empleado_id = u.empleado_id
+      WHERE 
+        u.fecha_eliminacion IS NULL
+        AND e.fecha_eliminacion IS NULL
+        AND (
+          LOWER(u.usuario) = LOWER($1)
+          OR LOWER(e.correo) = LOWER($1)
+        )
+      LIMIT 1
+      `,
+      [usuario.trim()]
+    );
+
+    if (result.rowCount === 0) {
+      return sendError(res, 404, "Usuario o correo no encontrado");
+    }
+
+    const user = result.rows[0];
+    const savedCode = resetCodes.get(String(user.usuario_id));
+
+    if (!savedCode) {
+      return sendError(res, 400, "No hay código activo para este usuario");
+    }
+
+    if (Date.now() > savedCode.expira) {
+      resetCodes.delete(String(user.usuario_id));
+      return sendError(res, 400, "El código ha expirado");
+    }
+
+    if (savedCode.codigo !== codigo.trim()) {
+      return sendError(res, 400, "Código inválido");
+    }
 
     const hash = await bcrypt.hash(contrasena, SALT);
 
     await pool.query(
-      "UPDATE usuarios SET contrasena = $1 WHERE usuario_id = $2",
-      [hash, data.usuario_id]
+      `
+      UPDATE usuarios
+      SET 
+        contrasena = $1,
+        fecha_actualizacion = NOW()
+      WHERE usuario_id = $2
+        AND fecha_eliminacion IS NULL
+      `,
+      [hash, user.usuario_id]
     );
 
+    resetCodes.delete(String(user.usuario_id));
+
     await registrarAlerta({
-      usuario_id: data.usuario_id,
+      usuario_id: user.usuario_id,
       tipo: "Contraseña actualizada",
       titulo: "Contraseña restablecida",
-      mensaje: "Se restableció correctamente la contraseña de un usuario.",
+      mensaje: `El usuario "${user.usuario}" restableció su contraseña con código de verificación.`,
       modulo: "Autenticación",
-      referencia_id: data.usuario_id,
+      referencia_id: user.usuario_id,
       prioridad: "Media",
     });
 
-    return res.json({ ok: true, msg: "Contraseña actualizada" });
+    return res.json({
+      ok: true,
+      msg: "Contraseña actualizada correctamente",
+    });
   } catch (error) {
-    return sendError(res, 400, "Token inválido o expirado");
+    console.error("[RESET PASSWORD ERROR]:", error);
+    return sendError(res, 500, "Error interno");
   }
 };
 
@@ -373,6 +494,7 @@ export const me = async (req, res) => {
       INNER JOIN empleados e ON e.empleado_id = u.empleado_id
       INNER JOIN roles r ON r.rol_id = e.rol_id
       WHERE u.usuario_id = $1
+        AND u.fecha_eliminacion IS NULL
     `;
 
     const result = await pool.query(query, [usuarioId]);
@@ -404,7 +526,11 @@ export const logout = async (req, res) => {
   }
 
   res.clearCookie("token");
-  return res.json({ ok: true, msg: "Sesión cerrada" });
+
+  return res.json({
+    ok: true,
+    msg: "Sesión cerrada",
+  });
 };
 
 export const getAllUsuarios = async (_req, res) => {
@@ -427,7 +553,10 @@ export const getAllUsuarios = async (_req, res) => {
 
     const result = await pool.query(query);
 
-    return res.json({ ok: true, usuarios: result.rows });
+    return res.json({
+      ok: true,
+      usuarios: result.rows,
+    });
   } catch (error) {
     console.error("[GET ALL ERROR]:", error);
     return sendError(res, 500, "Error interno");
@@ -460,7 +589,10 @@ export const getUsuarioById = async (req, res) => {
       return sendError(res, 404, "Usuario no encontrado");
     }
 
-    return res.json({ ok: true, usuario: result.rows[0] });
+    return res.json({
+      ok: true,
+      usuario: result.rows[0],
+    });
   } catch (error) {
     console.error("[GET BY ID ERROR]:", error);
     return sendError(res, 500, "Error interno");
@@ -474,7 +606,7 @@ export const updateUsuario = async (req, res) => {
   try {
     const exists = await pool.query(
       `
-      SELECT usuario_id, usuario
+      SELECT usuario_id, usuario, empleado_id
       FROM usuarios 
       WHERE usuario_id = $1
         AND fecha_eliminacion IS NULL
@@ -491,7 +623,7 @@ export const updateUsuario = async (req, res) => {
     if (empleado_id) {
       const emp = await pool.query(
         `
-        SELECT 1
+        SELECT empleado_id
         FROM empleados
         WHERE empleado_id = $1
           AND fecha_eliminacion IS NULL
@@ -502,14 +634,29 @@ export const updateUsuario = async (req, res) => {
       if (emp.rowCount === 0) {
         return sendError(res, 400, "El empleado no existe");
       }
+
+      const empleadoOcupado = await pool.query(
+        `
+        SELECT usuario_id
+        FROM usuarios
+        WHERE empleado_id = $1
+          AND usuario_id != $2
+          AND fecha_eliminacion IS NULL
+        `,
+        [empleado_id, id]
+      );
+
+      if (empleadoOcupado.rowCount > 0) {
+        return sendError(res, 400, "Ese empleado ya tiene otro usuario");
+      }
     }
 
-    if (usuario) {
+    if (usuario && usuario.trim() !== "") {
       const userExists = await pool.query(
         `
-        SELECT 1
+        SELECT usuario_id
         FROM usuarios 
-        WHERE usuario = $1 
+        WHERE LOWER(usuario) = LOWER($1)
           AND usuario_id != $2 
           AND fecha_eliminacion IS NULL
         `,
@@ -527,7 +674,8 @@ export const updateUsuario = async (req, res) => {
       hash = await bcrypt.hash(contrasena, SALT);
     }
 
-    const updateQuery = `
+    await pool.query(
+      `
       UPDATE usuarios
       SET 
         empleado_id = COALESCE($1, empleado_id),
@@ -535,22 +683,46 @@ export const updateUsuario = async (req, res) => {
         contrasena = COALESCE($3, contrasena),
         fecha_actualizacion = NOW()
       WHERE usuario_id = $4
-      RETURNING usuario_id, usuario, empleado_id
-    `;
-
-    const result = await pool.query(updateQuery, [
-      empleado_id || null,
-      usuario ? usuario.trim() : null,
-      hash,
-      id,
-    ]);
+      `,
+      [
+        empleado_id ? Number(empleado_id) : null,
+        usuario && usuario.trim() !== "" ? usuario.trim() : null,
+        hash,
+        id,
+      ]
+    );
 
     if (rol_id && empleado_id) {
       await pool.query(
-        "UPDATE empleados SET rol_id = $1 WHERE empleado_id = $2",
-        [rol_id, empleado_id]
+        `
+        UPDATE empleados
+        SET 
+          rol_id = $1,
+          fecha_actualizacion = NOW()
+        WHERE empleado_id = $2
+        `,
+        [Number(rol_id), Number(empleado_id)]
       );
     }
+
+    const actualizado = await pool.query(
+      `
+      SELECT 
+        u.usuario_id, 
+        u.usuario, 
+        u.empleado_id, 
+        e.nombres, 
+        e.apellidos, 
+        e.rol_id,
+        r.cargo
+      FROM usuarios u
+      INNER JOIN empleados e ON e.empleado_id = u.empleado_id
+      INNER JOIN roles r ON r.rol_id = e.rol_id
+      WHERE u.usuario_id = $1
+        AND u.fecha_eliminacion IS NULL
+      `,
+      [id]
+    );
 
     await registrarAlerta({
       usuario_id: Number(id),
@@ -565,7 +737,7 @@ export const updateUsuario = async (req, res) => {
     return res.json({
       ok: true,
       msg: "Usuario actualizado correctamente",
-      usuario: result.rows[0],
+      usuario: actualizado.rows[0],
     });
   } catch (error) {
     console.error("[UPDATE USER ERROR]:", error);
@@ -593,13 +765,14 @@ export const deleteUsuario = async (req, res) => {
 
     const usuarioEliminado = old.rows[0];
 
-    const query = `
+    await pool.query(
+      `
       UPDATE usuarios 
       SET fecha_eliminacion = NOW()
       WHERE usuario_id = $1
-    `;
-
-    await pool.query(query, [id]);
+      `,
+      [id]
+    );
 
     await registrarAlerta({
       usuario_id: Number(id),

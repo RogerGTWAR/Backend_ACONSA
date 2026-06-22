@@ -1,27 +1,29 @@
-import { verifyToken } from "../config/jwt.js";
+import JWT from "jsonwebtoken";
 
 export default function authenticate(req, res, next) {
-  try {
-    const token = req.cookies.token;
+  const token = req.cookies.token;
 
-    if (!token) {
-      return res.status(401).json({
-        ok: false,
-        msg: "Usuario no autenticado",
-      });
-    }
-
-    const decoded = verifyToken(token);
-
-    req.user = decoded;
-
-    next();
-  } catch (error) {
-    console.error("[AUTHENTICATE ERROR]:", error);
-
+  if (!token) {
     return res.status(401).json({
       ok: false,
-      msg: "Token inválido o expirado",
+      msg: "Usuario no autenticado"
     });
   }
+
+  try {
+
+    const { userId, isOwner } = JWT.verify(token, process.env.JWT_SECRET_KEY);
+
+    req.user = {
+      userId,
+      isOwner
+    }
+    next();
+  } catch (error) {
+    res.status(401).json({
+      ok: false,
+      msg: "Usuario no autenticado"
+    });
+  }
+
 }

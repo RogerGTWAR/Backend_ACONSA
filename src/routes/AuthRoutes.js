@@ -20,15 +20,24 @@ const router = Router();
 
 router.post("/register", register);
 router.post("/login", login);
+
 router.get("/me", authMiddleware, me);
 router.post("/logout", authMiddleware, logout);
+
 router.post("/auto-register", authMiddleware, autoRegister);
+
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 
 router.get("/usuarios", authMiddleware, getAllUsuarios);
 router.get("/usuarios/:id", authMiddleware, getUsuarioById);
+
+/* Tu frontend usa PATCH, por eso debe ser PATCH */
+router.patch("/usuarios/:id", authMiddleware, updateUsuario);
+
+/* Opcional: deja PUT también por compatibilidad */
 router.put("/usuarios/:id", authMiddleware, updateUsuario);
+
 router.delete("/usuarios/:id", authMiddleware, deleteUsuario);
 
 export default router;

@@ -15,19 +15,6 @@ const sanitizeUser = (u) => ({
   empleado_id: u.empleado_id,
 });
 
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  maxAge: 1000 * 60 * 60 * 8,
-};
-
-const clearCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-};
-
 export const login = async (req, res) => {
   const { usuario, contrasena } = req.body;
 
@@ -80,7 +67,12 @@ export const login = async (req, res) => {
       usuario: user.usuario,
     });
 
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 8,
+    });
 
     await registrarAlerta({
       usuario_id: user.usuario_id,
@@ -303,8 +295,7 @@ export const forgotPassword = async (req, res) => {
 
     const token = signToken({ usuario_id: user.usuario_id });
 
-    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, "");
-    const link = `${frontendUrl}/recuperar?token=${token}`;
+    const link = `${process.env.FRONTEND_URL}/recuperar?token=${token}`;
 
     await Mailer.sendMail({
       to: usuario,
@@ -412,12 +403,8 @@ export const logout = async (req, res) => {
     });
   }
 
-  res.clearCookie("token", clearCookieOptions);
-
-  return res.json({
-    ok: true,
-    msg: "Sesión cerrada",
-  });
+  res.clearCookie("token");
+  return res.json({ ok: true, msg: "Sesión cerrada" });
 };
 
 export const getAllUsuarios = async (_req, res) => {

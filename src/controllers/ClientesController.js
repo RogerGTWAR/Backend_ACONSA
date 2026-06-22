@@ -430,12 +430,37 @@ export default class ClientesController {
         });
       }
 
+      const proyectosAsociados = await prisma.proyectos.count({
+        where: {
+          cliente_id: id,
+          fecha_eliminacion: null,
+        },
+      });
+
+      if (proyectosAsociados > 0) {
+        await registrarAlerta({
+          usuario_id,
+          tipo: "Error",
+          titulo: "Cliente no eliminado",
+          mensaje: `No se pudo eliminar el cliente "${existe.nombre_empresa}" porque tiene ${proyectosAsociados} proyecto(s) asociado(s).`,
+          modulo: "Clientes",
+          referencia_id: null,
+          prioridad: "Alta",
+        });
+
+        return res.status(409).json({
+          ok: false,
+          msg: "No se puede eliminar el cliente porque tiene proyectos asociados en el sistema.",
+        });
+      }
+
       await prisma.clientes.update({
         where: {
           cliente_id: id,
         },
         data: {
           fecha_eliminacion: new Date(),
+          fecha_actualizacion: new Date(),
         },
       });
 

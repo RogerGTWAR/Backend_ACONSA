@@ -754,3 +754,601 @@ REFERENCES usuarios (usuario_id),
 CONSTRAINT chk_reportes_tipo
 CHECK (tipo_reporte IN ('PDF','EXCEL'))
 );
+
+-- ============================================================
+-- 3. ÍNDICES RECOMENDADOS
+-- No reemplazan los UNIQUE, pero ayudan al rendimiento
+-- ============================================================
+
+CREATE INDEX IF NOT EXISTS idx_empleados_rol_id
+ON public.empleados (rol_id);
+
+CREATE INDEX IF NOT EXISTS idx_empleados_reportes
+ON public.empleados (reportes);
+
+CREATE INDEX IF NOT EXISTS idx_proveedores_categoria_id
+ON public.proveedores (categoria_proveedor_id);
+
+CREATE INDEX IF NOT EXISTS idx_proyectos_cliente_id
+ON public.proyectos (cliente_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_empleados_empleado_id
+ON public.detalles_empleados (empleado_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_empleados_proyecto_id
+ON public.detalles_empleados (proyecto_id);
+
+CREATE INDEX IF NOT EXISTS idx_materiales_categoria_id
+ON public.materiales (categoria_id);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_inventario_material_id
+ON public.alertas_inventario (material_id);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_inventario_estado
+ON public.alertas_inventario (estado);
+
+CREATE INDEX IF NOT EXISTS idx_avaluos_proyecto_id
+ON public.avaluos (proyecto_id);
+
+CREATE INDEX IF NOT EXISTS idx_costos_directos_servicio_id
+ON public.costos_directos_servicios (servicio_id);
+
+CREATE INDEX IF NOT EXISTS idx_costos_directos_material_id
+ON public.costos_directos_servicios (material_id);
+
+CREATE INDEX IF NOT EXISTS idx_costos_indirectos_servicio_id
+ON public.costos_indirectos_servicios (servicio_id);
+
+CREATE INDEX IF NOT EXISTS idx_costos_indirectos_costo_directo_id
+ON public.costos_indirectos_servicios (costo_directo_id);
+
+CREATE INDEX IF NOT EXISTS idx_maquinarias_proveedor_id
+ON public.maquinarias (proveedor_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_maquinarias_proyecto_id
+ON public.detalles_maquinarias (proyecto_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_maquinarias_maquinaria_id
+ON public.detalles_maquinarias (maquinaria_id);
+
+CREATE INDEX IF NOT EXISTS idx_vehiculos_proveedor_id
+ON public.vehiculos (proveedor_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_vehiculos_empleado_id
+ON public.detalles_vehiculos (empleado_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_vehiculos_vehiculo_id
+ON public.detalles_vehiculos (vehiculo_id);
+
+CREATE INDEX IF NOT EXISTS idx_usuarios_empleado_id
+ON public.usuarios (empleado_id);
+
+CREATE INDEX IF NOT EXISTS idx_historial_alertas_usuario_id
+ON public.historial_alertas (usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_historial_alertas_modulo
+ON public.historial_alertas (modulo);
+
+CREATE INDEX IF NOT EXISTS idx_historial_alertas_leida
+ON public.historial_alertas (leida);
+
+CREATE INDEX IF NOT EXISTS idx_compras_proveedor_id
+ON public.compras (proveedor_id);
+
+CREATE INDEX IF NOT EXISTS idx_compras_empleado_id
+ON public.compras (empleado_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_compras_compra_id
+ON public.detalles_compras (compra_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_compras_material_id
+ON public.detalles_compras (material_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_avaluos_avaluo_id
+ON public.detalles_avaluos (avaluo_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalles_avaluos_servicio_id
+ON public.detalles_avaluos (servicio_id);
+
+CREATE INDEX IF NOT EXISTS idx_permisos_usuario_id
+ON public.permisos (usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_permisos_menu_id
+ON public.permisos (id_menu);
+
+CREATE INDEX IF NOT EXISTS idx_movimientos_inventario_material_id
+ON public.movimientos_inventario (material_id);
+
+CREATE INDEX IF NOT EXISTS idx_movimientos_inventario_usuario_id
+ON public.movimientos_inventario (usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_movimientos_inventario_fecha
+ON public.movimientos_inventario (fecha_movimiento);
+
+CREATE INDEX IF NOT EXISTS idx_reportes_usuario_id
+ON public.reportes_generados (usuario_id);
+
+
+-- ============================================================
+-- 4. FUNCIÓN PARA ACTUALIZAR FECHA_ACTUALIZACION
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.actualizar_fecha_modificacion()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.fecha_actualizacion = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ============================================================
+-- 5. TRIGGERS PARA FECHA_ACTUALIZACION
+-- ============================================================
+
+DROP TRIGGER IF EXISTS trg_roles_update ON public.roles;
+CREATE TRIGGER trg_roles_update
+BEFORE UPDATE ON public.roles
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_empleados_update ON public.empleados;
+CREATE TRIGGER trg_empleados_update
+BEFORE UPDATE ON public.empleados
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_clientes_update ON public.clientes;
+CREATE TRIGGER trg_clientes_update
+BEFORE UPDATE ON public.clientes
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_categorias_proveedor_update ON public.categorias_proveedor;
+CREATE TRIGGER trg_categorias_proveedor_update
+BEFORE UPDATE ON public.categorias_proveedor
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_proveedores_update ON public.proveedores;
+CREATE TRIGGER trg_proveedores_update
+BEFORE UPDATE ON public.proveedores
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_categorias_update ON public.categorias;
+CREATE TRIGGER trg_categorias_update
+BEFORE UPDATE ON public.categorias
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_proyectos_update ON public.proyectos;
+CREATE TRIGGER trg_proyectos_update
+BEFORE UPDATE ON public.proyectos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_detalles_empleados_update ON public.detalles_empleados;
+CREATE TRIGGER trg_detalles_empleados_update
+BEFORE UPDATE ON public.detalles_empleados
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_materiales_update ON public.materiales;
+CREATE TRIGGER trg_materiales_update
+BEFORE UPDATE ON public.materiales
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_alertas_inventario_update ON public.alertas_inventario;
+CREATE TRIGGER trg_alertas_inventario_update
+BEFORE UPDATE ON public.alertas_inventario
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_avaluos_update ON public.avaluos;
+CREATE TRIGGER trg_avaluos_update
+BEFORE UPDATE ON public.avaluos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_servicios_update ON public.servicios;
+CREATE TRIGGER trg_servicios_update
+BEFORE UPDATE ON public.servicios
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_costos_directos_update ON public.costos_directos_servicios;
+CREATE TRIGGER trg_costos_directos_update
+BEFORE UPDATE ON public.costos_directos_servicios
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_costos_indirectos_update ON public.costos_indirectos_servicios;
+CREATE TRIGGER trg_costos_indirectos_update
+BEFORE UPDATE ON public.costos_indirectos_servicios
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_detalles_avaluos_update ON public.detalles_avaluos;
+CREATE TRIGGER trg_detalles_avaluos_update
+BEFORE UPDATE ON public.detalles_avaluos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_maquinarias_update ON public.maquinarias;
+CREATE TRIGGER trg_maquinarias_update
+BEFORE UPDATE ON public.maquinarias
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_detalles_maquinarias_update ON public.detalles_maquinarias;
+CREATE TRIGGER trg_detalles_maquinarias_update
+BEFORE UPDATE ON public.detalles_maquinarias
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_vehiculos_update ON public.vehiculos;
+CREATE TRIGGER trg_vehiculos_update
+BEFORE UPDATE ON public.vehiculos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_detalles_vehiculos_update ON public.detalles_vehiculos;
+CREATE TRIGGER trg_detalles_vehiculos_update
+BEFORE UPDATE ON public.detalles_vehiculos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_usuarios_update ON public.usuarios;
+CREATE TRIGGER trg_usuarios_update
+BEFORE UPDATE ON public.usuarios
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_historial_alertas_update ON public.historial_alertas;
+CREATE TRIGGER trg_historial_alertas_update
+BEFORE UPDATE ON public.historial_alertas
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_permisos_update ON public.permisos;
+CREATE TRIGGER trg_permisos_update
+BEFORE UPDATE ON public.permisos
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_compras_update ON public.compras;
+CREATE TRIGGER trg_compras_update
+BEFORE UPDATE ON public.compras
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_detalles_compras_update ON public.detalles_compras;
+CREATE TRIGGER trg_detalles_compras_update
+BEFORE UPDATE ON public.detalles_compras
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_movimientos_inventario_update ON public.movimientos_inventario;
+CREATE TRIGGER trg_movimientos_inventario_update
+BEFORE UPDATE ON public.movimientos_inventario
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+DROP TRIGGER IF EXISTS trg_reportes_generados_update ON public.reportes_generados;
+CREATE TRIGGER trg_reportes_generados_update
+BEFORE UPDATE ON public.reportes_generados
+FOR EACH ROW
+EXECUTE FUNCTION public.actualizar_fecha_modificacion();
+
+
+-- ============================================================
+-- 6. FUNCIÓN PARA GENERAR ALERTAS DE INVENTARIO
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.generar_alerta_stock_bajo()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.cantidad_en_stock <= NEW.stock_minimo THEN
+
+        INSERT INTO public.alertas_inventario (
+            material_id,
+            tipo_alerta,
+            mensaje,
+            stock_actual,
+            stock_minimo,
+            estado,
+            fecha_creacion
+        )
+        SELECT
+            NEW.material_id,
+            CASE
+                WHEN NEW.cantidad_en_stock = NEW.stock_minimo THEN 'Stock Bajo'
+                ELSE 'Inventario Crítico'
+            END,
+            'El material "' || NEW.nombre_material || '" alcanzó el inventario de seguridad. Stock actual: '
+            || NEW.cantidad_en_stock || ', stock mínimo permitido: ' || NEW.stock_minimo || '.',
+            NEW.cantidad_en_stock,
+            NEW.stock_minimo,
+            'Pendiente',
+            NOW()
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM public.alertas_inventario ai
+            WHERE ai.material_id = NEW.material_id
+            AND ai.estado = 'Pendiente'
+        );
+
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_alerta_stock_bajo ON public.materiales;
+
+CREATE TRIGGER trg_alerta_stock_bajo
+AFTER INSERT OR UPDATE OF cantidad_en_stock
+ON public.materiales
+FOR EACH ROW
+EXECUTE FUNCTION public.generar_alerta_stock_bajo();
+
+
+-- ============================================================
+-- 7. FUNCIÓN PARA REGISTRAR ENTRADA DE MATERIAL
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.registrar_entrada_material(
+    p_material_id INTEGER,
+    p_cantidad INTEGER,
+    p_precio_unitario NUMERIC,
+    p_referencia VARCHAR,
+    p_descripcion VARCHAR,
+    p_usuario_id INTEGER DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    v_stock_anterior INTEGER;
+    v_stock_nuevo INTEGER;
+BEGIN
+    IF p_cantidad <= 0 THEN
+        RAISE EXCEPTION 'La cantidad de entrada debe ser mayor que cero.';
+    END IF;
+
+    SELECT cantidad_en_stock
+    INTO v_stock_anterior
+    FROM public.materiales
+    WHERE material_id = p_material_id;
+
+    IF v_stock_anterior IS NULL THEN
+        RAISE EXCEPTION 'El material no existe.';
+    END IF;
+
+    v_stock_nuevo := v_stock_anterior + p_cantidad;
+
+    UPDATE public.materiales
+    SET cantidad_en_stock = v_stock_nuevo
+    WHERE material_id = p_material_id;
+
+    INSERT INTO public.movimientos_inventario (
+        material_id,
+        tipo_movimiento,
+        cantidad,
+        stock_anterior,
+        stock_nuevo,
+        precio_unitario,
+        referencia,
+        descripcion,
+        usuario_id
+    )
+    VALUES (
+        p_material_id,
+        'Entrada',
+        p_cantidad,
+        v_stock_anterior,
+        v_stock_nuevo,
+        p_precio_unitario,
+        p_referencia,
+        p_descripcion,
+        p_usuario_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ============================================================
+-- 8. FUNCIÓN PARA REGISTRAR SALIDA DE MATERIAL
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.registrar_salida_material(
+    p_material_id INTEGER,
+    p_cantidad INTEGER,
+    p_referencia VARCHAR,
+    p_descripcion VARCHAR,
+    p_usuario_id INTEGER DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    v_stock_anterior INTEGER;
+    v_stock_nuevo INTEGER;
+    v_stock_minimo INTEGER;
+    v_precio_unitario NUMERIC(18,2);
+BEGIN
+    IF p_cantidad <= 0 THEN
+        RAISE EXCEPTION 'La cantidad de salida debe ser mayor que cero.';
+    END IF;
+
+    SELECT cantidad_en_stock, stock_minimo, precio_unitario
+    INTO v_stock_anterior, v_stock_minimo, v_precio_unitario
+    FROM public.materiales
+    WHERE material_id = p_material_id;
+
+    IF v_stock_anterior IS NULL THEN
+        RAISE EXCEPTION 'El material no existe.';
+    END IF;
+
+    v_stock_nuevo := v_stock_anterior - p_cantidad;
+
+    IF v_stock_nuevo < v_stock_minimo THEN
+        RAISE EXCEPTION 'Movimiento no permitido. El inventario no puede ser menor a % unidades. Stock actual: %, salida solicitada: %, stock resultante: %.',
+            v_stock_minimo, v_stock_anterior, p_cantidad, v_stock_nuevo;
+    END IF;
+
+    UPDATE public.materiales
+    SET cantidad_en_stock = v_stock_nuevo
+    WHERE material_id = p_material_id;
+
+    INSERT INTO public.movimientos_inventario (
+        material_id,
+        tipo_movimiento,
+        cantidad,
+        stock_anterior,
+        stock_nuevo,
+        precio_unitario,
+        referencia,
+        descripcion,
+        usuario_id
+    )
+    VALUES (
+        p_material_id,
+        'Salida',
+        p_cantidad,
+        v_stock_anterior,
+        v_stock_nuevo,
+        v_precio_unitario,
+        p_referencia,
+        p_descripcion,
+        p_usuario_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ============================================================
+-- 9. FUNCIÓN PARA REGISTRAR AJUSTE DE MATERIAL
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.registrar_ajuste_material(
+    p_material_id INTEGER,
+    p_stock_nuevo INTEGER,
+    p_referencia VARCHAR,
+    p_descripcion VARCHAR,
+    p_usuario_id INTEGER DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    v_stock_anterior INTEGER;
+    v_stock_minimo INTEGER;
+    v_diferencia INTEGER;
+    v_precio_unitario NUMERIC(18,2);
+BEGIN
+    SELECT cantidad_en_stock, stock_minimo, precio_unitario
+    INTO v_stock_anterior, v_stock_minimo, v_precio_unitario
+    FROM public.materiales
+    WHERE material_id = p_material_id;
+
+    IF v_stock_anterior IS NULL THEN
+        RAISE EXCEPTION 'El material no existe.';
+    END IF;
+
+    IF p_stock_nuevo < v_stock_minimo THEN
+        RAISE EXCEPTION 'Ajuste no permitido. El inventario no puede ser menor a % unidades.', v_stock_minimo;
+    END IF;
+
+    v_diferencia := ABS(p_stock_nuevo - v_stock_anterior);
+
+    UPDATE public.materiales
+    SET cantidad_en_stock = p_stock_nuevo
+    WHERE material_id = p_material_id;
+
+    INSERT INTO public.movimientos_inventario (
+        material_id,
+        tipo_movimiento,
+        cantidad,
+        stock_anterior,
+        stock_nuevo,
+        precio_unitario,
+        referencia,
+        descripcion,
+        usuario_id
+    )
+    VALUES (
+        p_material_id,
+        'Ajuste',
+        v_diferencia,
+        v_stock_anterior,
+        p_stock_nuevo,
+        v_precio_unitario,
+        p_referencia,
+        p_descripcion,
+        p_usuario_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ============================================================
+-- 10. FUNCIÓN PARA REGISTRAR ENTRADA DESDE DETALLES_COMPRAS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.registrar_entrada_desde_compra()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_stock_anterior INTEGER;
+    v_stock_nuevo INTEGER;
+    v_factura VARCHAR(50);
+BEGIN
+    SELECT cantidad_en_stock
+    INTO v_stock_anterior
+    FROM public.materiales
+    WHERE material_id = NEW.material_id;
+
+    IF v_stock_anterior IS NULL THEN
+        RAISE EXCEPTION 'El material no existe.';
+    END IF;
+
+    v_stock_nuevo := v_stock_anterior + NEW.cantidad;
+
+    UPDATE public.materiales
+    SET cantidad_en_stock = v_stock_nuevo
+    WHERE material_id = NEW.material_id;
+
+    SELECT numero_factura
+    INTO v_factura
+    FROM public.compras
+    WHERE compra_id = NEW.compra_id;
+
+    INSERT INTO public.movimientos_inventario (
+        material_id,
+        tipo_movimiento,
+        cantidad,
+        stock_anterior,
+        stock_nuevo,
+        precio_unitario,
+        referencia,
+        descripcion,
+        usuario_id
+    )
+    VALUES (
+        NEW.material_id,
+        'Entrada',
+        NEW.cantidad,
+        v_stock_anterior,
+        v_stock_nuevo,
+        NEW.precio_unitario,
+        'Compra ' || COALESCE(v_factura, NEW.compra_id::TEXT),
+        'Entrada automática generada desde detalle de compra.',
+        NULL
+    );
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_entrada_desde_compra ON public.detalles_compras;
+
+CREATE TRIGGER trg_entrada_desde_compra
+AFTER INSERT ON public.detalles_compras
+FOR EACH ROW
+EXECUTE FUNCTION public.registrar_entrada_desde_compra();
